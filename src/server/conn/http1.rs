@@ -192,10 +192,7 @@ where
     /// Enable this connection to support higher-level HTTP upgrades.
     ///
     /// See [the `upgrade` module](crate::upgrade) for more.
-    pub fn with_upgrades(self) -> UpgradeableConnection<I, S>
-    where
-        I: Send,
-    {
+    pub fn with_upgrades(self) -> UpgradeableConnection<I, S> {
         UpgradeableConnection { inner: Some(self) }
     }
 }
@@ -494,7 +491,7 @@ impl<I, B, S> Future for UpgradeableConnection<I, S>
 where
     S: HttpService<IncomingBody, ResBody = B>,
     S::Error: Into<Box<dyn StdError + Send + Sync>>,
-    I: Read + Write + Unpin + Send + 'static,
+    I: Read + Write + Unpin + 'static,
     B: Body + 'static,
     B::Error: Into<Box<dyn StdError + Send + Sync>>,
 {

@@ -63,7 +63,40 @@ use crate::common::io::Rewind;
 /// Alternatively, if the exact type is known, this can be deconstructed
 /// into its parts.
 pub struct Upgraded {
-    io: Rewind<Box<dyn Io + Send>>,
+    io: Rewind<UpgradeInner>,
+}
+
+enum UpgradeInner {
+    #[cfg(feature = "http2")]
+    H2Upgraded(crate::proto::h2::H2Upgraded),
+}
+
+impl Read for UpgradeInner {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: ReadBufCursor<'_>,
+    ) -> Poll<Result<(), std::io::Error>> {
+        todo!()
+    }
+}
+
+impl Write for UpgradeInner {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        _buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        unreachable!("UpgradeInner::poll_write")
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        unreachable!("UpgradeInner::poll_flush")
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        unreachable!("UpgradeInner::poll_shutdown")
+    }
 }
 
 /// A future for a possible HTTP upgrade.
@@ -135,12 +168,9 @@ impl Upgraded {
         any(feature = "client", feature = "server"),
         any(feature = "http1", feature = "http2")
     ))]
-    pub(super) fn new<T>(io: T, read_buf: Bytes) -> Self
-    where
-        T: Read + Write + Unpin + Send + 'static,
-    {
+    pub(super) fn new(io: (), read_buf: Bytes) -> Self {
         Upgraded {
-            io: Rewind::new_buffered(Box::new(io), read_buf),
+            io: Rewind::new_buffered(io, read_buf),
         }
     }
 
@@ -149,16 +179,7 @@ impl Upgraded {
     /// On success, returns the downcasted parts. On error, returns the
     /// `Upgraded` back.
     pub fn downcast<T: Read + Write + Unpin + 'static>(self) -> Result<Parts<T>, Self> {
-        let (io, buf) = self.io.into_inner();
-        match io.__hyper_downcast() {
-            Ok(t) => Ok(Parts {
-                io: *t,
-                read_buf: buf,
-            }),
-            Err(io) => Err(Upgraded {
-                io: Rewind::new_buffered(io, buf),
-            }),
-        }
+        todo!();
     }
 }
 
@@ -294,25 +315,6 @@ pub(super) trait Io: Read + Write + Unpin + 'static {
 }
 
 impl<T: Read + Write + Unpin + 'static> Io for T {}
-
-impl dyn Io + Send {
-    fn __hyper_is<T: Io>(&self) -> bool {
-        let t = TypeId::of::<T>();
-        self.__hyper_type_id() == t
-    }
-
-    fn __hyper_downcast<T: Io>(self: Box<Self>) -> Result<Box<T>, Box<Self>> {
-        if self.__hyper_is::<T>() {
-            // Taken from `std::error::Error::downcast()`.
-            unsafe {
-                let raw: *mut dyn Io = Box::into_raw(self);
-                Ok(Box::from_raw(raw as *mut T))
-            }
-        } else {
-            Err(self)
-        }
-    }
-}
 
 mod sealed {
     use super::OnUpgrade;

@@ -263,7 +263,7 @@ impl<B: Buf> Buf for SendBuf<B> {
     }
 }
 
-struct H2Upgraded<B>
+pub(crate) struct H2Upgraded<B>
 where
     B: Buf,
 {

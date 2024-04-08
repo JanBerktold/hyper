@@ -317,6 +317,51 @@ async fn http2_client(url: hyper::Uri) -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
+async fn upgradable_server() -> Result<(), Box<dyn std::error::Error>> {
+    let mut stdout = io::stdout();
+
+    let addr: SocketAddr = ([127, 0, 0, 1], 3002).into();
+    // Using a !Send request counter is fine on 1 thread...
+    let counter = Rc::new(Cell::new(0));
+
+    let listener = TcpListener::bind(addr).await?;
+
+    stdout
+        .write_all(format!("Listening on http://{}", addr).as_bytes())
+        .await
+        .unwrap();
+    stdout.flush().await.unwrap();
+
+    loop {
+        let (stream, _) = listener.accept().await?;
+        let io = IOTypeNotSend::new(TokioIo::new(stream));
+
+        // For each connection, clone the counter to use in our service...
+        let cnt = counter.clone();
+
+        let service = service_fn(move |_| {
+            let prev = cnt.get();
+            cnt.set(prev + 1);
+            let value = cnt.get();
+            async move { Ok::<_, Error>(Response::new(Body::from(format!("Request #{}", value)))) }
+        });
+
+        tokio::task::spawn_local(async move {
+            if let Err(err) = hyper::server::conn::http1::Builder::new()
+                .serve_connection(io, service)
+                .with_upgrades()
+                .await
+            {
+                let mut stdout = io::stdout();
+                stdout
+                    .write_all(format!("Error serving connection: {:?}", err).as_bytes())
+                    .await
+                    .unwrap();
+                stdout.flush().await.unwrap();
+            }
+        });
+    }
+}
 // NOTE: This part is only needed for HTTP/2. HTTP/1 doesn't need an executor.
 //
 // Since the Server needs to spawn some background tasks, we needed
