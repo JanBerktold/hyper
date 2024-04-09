@@ -63,7 +63,7 @@ use crate::common::io::Rewind;
 /// Alternatively, if the exact type is known, this can be deconstructed
 /// into its parts.
 pub struct Upgraded {
-    io: Rewind<Box<dyn Io + Send>>,
+    io: Rewind<Box<dyn Io>>,
 }
 
 /// A future for a possible HTTP upgrade.
@@ -137,7 +137,7 @@ impl Upgraded {
     ))]
     pub(super) fn new<T>(io: T, read_buf: Bytes) -> Self
     where
-        T: Read + Write + Unpin + Send + 'static,
+        T: Read + Write + Unpin + 'static,
     {
         Upgraded {
             io: Rewind::new_buffered(Box::new(io), read_buf),
@@ -295,7 +295,7 @@ pub(super) trait Io: Read + Write + Unpin + 'static {
 
 impl<T: Read + Write + Unpin + 'static> Io for T {}
 
-impl dyn Io + Send {
+impl dyn Io {
     fn __hyper_is<T: Io>(&self) -> bool {
         let t = TypeId::of::<T>();
         self.__hyper_type_id() == t

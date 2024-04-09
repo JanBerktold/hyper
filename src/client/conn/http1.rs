@@ -565,7 +565,7 @@ mod upgrades {
     #[allow(missing_debug_implementations)]
     pub struct UpgradeableConnection<T, B>
     where
-        T: Read + Write + Unpin + Send + 'static,
+        T: Read + Write + Unpin + 'static,
         B: Body + 'static,
         B::Error: Into<Box<dyn StdError + Send + Sync>>,
     {
@@ -574,9 +574,8 @@ mod upgrades {
 
     impl<I, B> Future for UpgradeableConnection<I, B>
     where
-        I: Read + Write + Unpin + Send + 'static,
+        I: Read + Write + Unpin + 'static,
         B: Body + 'static,
-        B::Data: Send,
         B::Error: Into<Box<dyn StdError + Send + Sync>>,
     {
         type Output = crate::Result<()>;

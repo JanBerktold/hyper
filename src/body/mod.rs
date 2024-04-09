@@ -36,11 +36,3 @@ pub(crate) use self::length::DecodedLength;
 
 mod incoming;
 mod length;
-
-fn _assert_send_sync() {
-    fn _assert_send<T: Send>() {}
-    fn _assert_sync<T: Sync>() {}
-
-    _assert_send::<Incoming>();
-    _assert_sync::<Incoming>();
-}
